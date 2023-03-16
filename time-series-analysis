@@ -1,0 +1,74 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+from sklearn.preprocessing import MinMaxScaler
+from statsmodels.tsa.stattools import adfuller
+from statsmodels.tsa.seasonal import seasonal_decompose
+from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
+from statsmodels.tsa.arima_model import ARIMA
+from pmdarima.arima import auto_arima
+from fbprophet import Prophet
+
+# Load the time-series data
+df = pd.read_csv('time_series_data.csv', index_col='Date', parse_dates=True)
+
+# Create a table of descriptive statistics
+stats = pd.DataFrame({'Mean': df.mean(), 'Std Dev': df.std(), 'Skewness': df.skew(), 'Kurtosis': df.kurtosis()})
+print(stats)
+
+# Plot the data distribution of the target variable
+plt.hist(df['Target'], bins=20, density=True, alpha=0.6, color='blue')
+mu, std = norm.fit(df['Target'])
+xmin, xmax = plt.xlim()
+x = np.linspace(xmin, xmax, 100)
+p = norm.pdf(x, mu, std)
+plt.plot(x, p, 'k', linewidth=2)
+plt.title('Target Variable Distribution')
+plt.xlabel('Target Variable Values')
+plt.ylabel('Density')
+plt.show()
+
+# Plot the data distribution of exogenous variables
+exog_cols = ['Exog1', 'Exog2', 'Exog3']
+fig, ax = plt.subplots(len(exog_cols), 1, figsize=(12, 6*len(exog_cols)))
+for i, col in enumerate(exog_cols):
+    ax[i].hist(df[col], bins=20, density=True, alpha=0.6, color='blue')
+    ax[i].set_title(col + ' Distribution')
+    ax[i].set_xlabel(col + ' Values')
+    ax[i].set_ylabel('Density')
+plt.show()
+
+# Calculate the sigma of the target variable using six-sigma control charts
+rolling_mean = df['Target'].rolling(window=30).mean()
+rolling_std = df['Target'].rolling(window=30).std()
+sigma_upper = rolling_mean + (6 * rolling_std)
+sigma_lower = rolling_mean - (6 * rolling_std)
+fig, ax = plt.subplots(figsize=(12, 6))
+ax.plot(df['Target'], label='Target')
+ax.plot(rolling_mean, label='Rolling Mean')
+ax.plot(sigma_upper, label='Upper Sigma Limit')
+ax.plot(sigma_lower, label='Lower Sigma Limit')
+ax.set_title('Six-Sigma Control Chart')
+ax.set_xlabel('Date')
+ax.set_ylabel('Target Variable Values')
+ax.legend()
+plt.show()
+
+# Check for stationarity using the Augmented Dickey-Fuller test
+adf_result = adfuller(df['Target'])
+print('ADF Statistic:', adf_result[0])
+print('p-value:', adf_result[1])
+print('Critical Values:', adf_result[4])
+
+# Decompose the time-series into trend, seasonal, and residual components
+decomposition = seasonal_decompose(df['Target'], model='additive', period=30)
+trend = decomposition.trend
+seasonal = decomposition.seasonal
+residual = decomposition.resid
+fig, ax = plt.subplots(4, 1, figsize=(12, 10))
+ax[0].plot(df['Target'], label='Original')
+ax[0].legend()
+ax[1].plot(trend, label='Trend')
+ax[1].legend()
+ax[2].plot(seasonal
