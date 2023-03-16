@@ -11,7 +11,58 @@ from pmdarima.arima import auto_arima
 from fbprophet import Prophet
 
 # Load the time-series data
-df = pd.read_csv('time_series_data.csv', index_col='Date', parse_dates=True)
+#df = pd.read_csv('time_series_data.csv', index_col='Date', parse_dates=True)
+
+import requests
+from datetime import datetime, timedelta
+from requests.auth import HTTPBasicAuth
+
+# Set up your OAuth credentials
+client_id = 'your_client_id'
+client_secret = 'your_client_secret'
+access_token_url = 'https://example.com/oauth2/token'
+api_url = 'https://example.com/api/v1'
+
+# Set up a function to get the access token
+def get_access_token():
+    auth = HTTPBasicAuth(client_id, client_secret)
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    data = {'grant_type': 'client_credentials'}
+
+    response = requests.post(access_token_url, auth=auth, headers=headers, data=data)
+
+    if response.status_code == 200:
+        access_token = response.json()['access_token']
+        expires_in = response.json()['expires_in']
+        expiration_time = datetime.now() + timedelta(seconds=expires_in)
+        return access_token, expiration_time
+    else:
+        raise Exception('Failed to get access token')
+
+# Set up a function to make API requests with the access token
+def make_api_request(endpoint):
+    access_token, expiration_time = get_access_token()
+    headers = {'Authorization': f'Bearer {access_token}'}
+
+    response = requests.get(api_url + endpoint, headers=headers)
+
+    if response.status_code == 200:
+        return response.json()
+    elif response.status_code == 401 and datetime.now() >= expiration_time:
+        # If the access token has expired, refresh it and try again
+        access_token, expiration_time = get_access_token()
+        headers = {'Authorization': f'Bearer {access_token}'}
+        response = requests.get(api_url + endpoint, headers=headers)
+
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise Exception('Failed to refresh access token')
+    else:
+        raise Exception('Failed to make API request')
+
+# Call the make_api_request function with the desired endpoint
+data = make_api_request('/endpoint')
 
 # Create a table of descriptive statistics
 stats = pd.DataFrame({'Mean': df.mean(), 'Std Dev': df.std(), 'Skewness': df.skew(), 'Kurtosis': df.kurtosis()})
@@ -72,3 +123,47 @@ ax[0].legend()
 ax[1].plot(trend, label='Trend')
 ax[1].legend()
 ax[2].plot(seasonal
+
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM, Dropout
+
+# Split the data into training and testing sets
+train_size = int(len(df) * 0.8)
+test_size = len(df) - train_size
+train_data, test_data = df.iloc[0:train_size,:], df.iloc[train_size:len(df),:]
+
+# Create a function to preprocess the data
+def preprocess_data(data, time_steps):
+    X, y = [], []
+    for i in range(len(data)-time_steps-1):
+        X.append(data[i:(i+time_steps), :])
+        y.append(data[(i+time_steps), 0])
+    return np.array(X), np.array(y)
+
+# Define the time steps and number of features
+time_steps = 60
+num_features = len(df.columns)
+
+# Preprocess the training and testing data
+X_train, y_train = preprocess_data(train_data.values, time_steps)
+X_test, y_test = preprocess_data(test_data.values, time_steps)
+
+# Create the LSTM model
+model = Sequential()
+model.add(LSTM(128, input_shape=(time_steps, num_features)))
+model.add(Dropout(0.2))
+model.add(Dense(1))
+
+# Compile the model
+model.compile(loss='mse', optimizer='adam')
+
+# Train the model
+history = model.fit(X_train, y_train, epochs=50, batch_size=16, validation_split=0.1, verbose=1)
+
+# Make predictions on the test data
+predictions = model.predict(X_test)
+
+# Calculate the root mean squared error
+mse = mean_squared_error(y_test, predictions)
+rmse = np.sqrt(mse)
+print(f"RMSE: {rmse}")
