@@ -9,6 +9,8 @@ from statsmodels.graphics.tsaplots import plot_acf, plot_pacf
 from statsmodels.tsa.arima_model import ARIMA
 from pmdarima.arima import auto_arima
 from fbprophet import Prophet
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, LSTM, Dropout
 
 # Load the time-series data
 #df = pd.read_csv('time_series_data.csv', index_col='Date', parse_dates=True)
@@ -122,10 +124,13 @@ ax[0].plot(df['Target'], label='Original')
 ax[0].legend()
 ax[1].plot(trend, label='Trend')
 ax[1].legend()
-ax[2].plot(seasonal
+ax[2].plot(seasonal, label='Seasonal')
+ax[2].legend()
+ax[2].plot(seasonal)
+ax[3].plot(residual, label='Residual')
+ax[3].legend()
+ax[3].plot(residual)
 
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, LSTM, Dropout
 
 # Split the data into training and testing sets
 train_size = int(len(df) * 0.8)
